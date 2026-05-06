@@ -786,7 +786,12 @@ function gbrainPutPage(page: PageRecord): { ok: boolean; error?: string } {
   //    land in gbrain with empty title/type/tags.
   let body = page.body;
   if (body.startsWith("---\n")) {
-    const end = body.indexOf("\n---\n", 4);
+    // Locate the closing --- delimiter. buildTranscriptPage joins with "\n"
+    // and does not append a trailing newline, so the close fence looks like
+    // "...\n---" followed directly by body content (no "\n---\n" pattern).
+    // Match the close on "\n---" only — the inject lands BEFORE the close
+    // fence, inside the frontmatter block, regardless of what follows it.
+    const end = body.indexOf("\n---", 4);
     if (end > 0) {
       const inject = [
         `title: ${JSON.stringify(page.title)}`,
