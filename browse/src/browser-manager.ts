@@ -193,7 +193,8 @@ export class BrowserManager {
     // BROWSE_EXTENSIONS_DIR points to an unpacked Chrome extension directory.
     // Extensions only work in headed mode, so we use an off-screen window.
     const extensionsDir = process.env.BROWSE_EXTENSIONS_DIR;
-    const launchArgs: string[] = [];
+    const { STEALTH_LAUNCH_ARGS } = await import('./stealth');
+    const launchArgs: string[] = [...STEALTH_LAUNCH_ARGS];
     let useHeadless = true;
 
     // Docker/CI: Chromium sandbox requires unprivileged user namespaces which
@@ -243,6 +244,13 @@ export class BrowserManager {
     if (Object.keys(this.extraHeaders).length > 0) {
       await this.context.setExtraHTTPHeaders(this.extraHeaders);
     }
+
+    // D7: mask navigator.webdriver only. The other 3 wintermute patches
+    // (plugins, languages, chrome.runtime) are intentionally NOT applied —
+    // faking them to fixed values can flag more bot-like to modern
+    // fingerprinters, not less.
+    const { applyStealth } = await import('./stealth');
+    await applyStealth(this.context);
 
     // Create first tab
     await this.newTab();
@@ -385,33 +393,20 @@ export class BrowserManager {
     this.connectionMode = 'headed';
     this.intentionalDisconnect = false;
 
-    // ─── Anti-bot-detection stealth patches ───────────────────────
-    // Playwright's Chromium is detected by sites like Google/NYTimes via:
-    //   1. navigator.webdriver = true (handled by --disable-blink-features above)
-    //   2. Missing plugins array (real Chrome has PDF viewer, etc.)
-    //   3. Missing languages
-    //   4. CDP runtime detection (window.cdc_* variables)
-    //   5. Permissions API returning 'denied' for notifications
+    // ─── Anti-bot-detection patches ───────────────────────────────
+    // D7 (codex correction): mask navigator.webdriver only. We do NOT fake
+    // plugins/languages — modern fingerprinters check consistency between
+    // those and userAgent/platform, and synthesizing fixed values can flag
+    // MORE bot-like, not less. Let Chromium's natural plugins and languages
+    // surface unmodified.
+    //
+    // What we DO clean up are automation-specific runtime artifacts that
+    // shouldn't exist in a real browser at all (Permissions API quirks,
+    // ChromeDriver-injected window globals). Those aren't fingerprint
+    // synthesis — they're removing leaked automation tells.
+    const { applyStealth } = await import('./stealth');
+    await applyStealth(this.context);
     await this.context.addInitScript(() => {
-      // Fake plugins array (real Chrome has at least PDF Viewer)
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => {
-          const plugins = [
-            { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-            { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: '' },
-            { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: '' },
-          ];
-          (plugins as any).namedItem = (name: string) => plugins.find(p => p.name === name) || null;
-          (plugins as any).refresh = () => {};
-          return plugins;
-        },
-      });
-
-      // Fake languages (Playwright sometimes sends empty)
-      Object.defineProperty(navigator, 'languages', {
-        get: () => ['en-US', 'en'],
-      });
-
       // Remove CDP runtime artifacts that automation detectors look for
       // cdc_ prefixed vars are injected by ChromeDriver/CDP
       const cleanup = () => {
