@@ -232,6 +232,11 @@ retros/*.md
 developer-profile.json
 builder-journey.md
 builder-profile.jsonl
+# Transcripts staged in remote-http MCP mode (per plan D11 split-engine).
+# gstack-memory-ingest persists per-run dirs here when local gbrain import
+# is skipped; brain admin pulls + indexes into the remote brain.
+transcripts/run-*/*.md
+transcripts/run-*/**/*.md
 # NOT synced (machine-local UX state):
 #   projects/*/question-preferences.json (per-machine UX preferences)
 #   projects/*/question-log.jsonl (audit/derivation log stays with preferences)
@@ -251,7 +256,9 @@ cat > "$GSTACK_HOME/.brain-privacy-map.json" <<'EOF'
   {"pattern": "builder-journey.md", "class": "artifact"},
   {"pattern": "projects/*/timeline.jsonl", "class": "behavioral"},
   {"pattern": "developer-profile.json", "class": "behavioral"},
-  {"pattern": "builder-profile.jsonl", "class": "behavioral"}
+  {"pattern": "builder-profile.jsonl", "class": "behavioral"},
+  {"pattern": "transcripts/run-*/*.md", "class": "behavioral"},
+  {"pattern": "transcripts/run-*/**/*.md", "class": "behavioral"}
 ]
 EOF
 
