@@ -8,10 +8,10 @@ name: Windows Free Tests
 # targeted resolver tests that exercise the Bun.which-based claude binary
 # resolution + the GSTACK_CLAUDE_BIN override path on Windows.
 #
-# Runner: Ubicloud Windows runner (`ubicloud-standard-2-windows`). Matches
-# the Ubicloud Linux runner the evals workflow already uses, so billing
-# stays consolidated under one provider. Swap to `windows-latest` to revert
-# to GitHub's free runner if Ubicloud has Windows capacity issues. Note
+# Runner: Ubicloud Windows runner (`ubicloud-standard-8-windows`). All CI
+# in this repo runs on Ubicloud (Linux + Windows) for billing consolidation
+# and consistent capacity. Swap to `windows-latest` to revert to GitHub's
+# free runner if Ubicloud has Windows capacity issues. Note
 # `windows-latest-8-cores` (GitHub paid larger runner) sat queued because
 # org-level larger-runner billing wasn't enabled.
 #
@@ -36,7 +36,7 @@ jobs:
   windows-free-tests:
     # Ubicloud Windows runner (same provider as the Linux evals workflow).
     # To revert: swap to `windows-latest` (GitHub's free 4-core Windows runner).
-    runs-on: ubicloud-standard-2-windows
+    runs-on: ubicloud-standard-8-windows
     timeout-minutes: 15
 
     steps:
