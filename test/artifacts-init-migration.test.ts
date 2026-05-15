@@ -1,4 +1,4 @@
-// Unit tests for gstack-upgrade/migrations/v1.36.0.0.sh (#1452).
+// Unit tests for gstack-upgrade/migrations/v1.38.0.0.sh (#1452).
 // Verifies idempotent in-place repair of .brain-allowlist,
 // .brain-privacy-map.json, and .gitattributes.
 
@@ -8,7 +8,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 const REPO_ROOT = new URL('..', import.meta.url).pathname;
-const MIGRATION = join(REPO_ROOT, 'gstack-upgrade', 'migrations', 'v1.36.0.0.sh');
+const MIGRATION = join(REPO_ROOT, 'gstack-upgrade', 'migrations', 'v1.38.0.0.sh');
 
 function setupFakeHome(): string {
   const dir = mkdtempSync(join(tmpdir(), 'mig-v1340-'));
@@ -30,7 +30,7 @@ function runMigration(fakeHome: string): { code: number; stdout: string; stderr:
   };
 }
 
-describe('v1.36.0.0 migration', () => {
+describe('v1.38.0.0 migration', () => {
   test('adds patterns to allowlist before USER ADDITIONS marker', () => {
     const home = setupFakeHome();
     try {
@@ -166,7 +166,7 @@ describe('v1.36.0.0 migration', () => {
       writeFileSync(join(home, '.gstack', '.brain-allowlist'), '# ---- USER ADDITIONS BELOW\n');
       runMigration(home);
       // Confirm marker file exists
-      expect(existsSync(join(home, '.gstack', '.migrations', 'v1.36.0.0.done'))).toBe(true);
+      expect(existsSync(join(home, '.gstack', '.migrations', 'v1.38.0.0.done'))).toBe(true);
 
       // Modify allowlist so we can detect if the migration would re-run
       writeFileSync(join(home, '.gstack', '.brain-allowlist'), '# minimal\n');

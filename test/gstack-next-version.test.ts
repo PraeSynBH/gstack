@@ -181,5 +181,5 @@ describe("integration (smoke)", () => {
     expect(Array.isArray(parsed.claimed)).toBe(true);
     expect(parsed).toHaveProperty("siblings");
     expect(parsed.siblings).toEqual([]); // --workspace-root null disabled scanning
-  }, 30000);
+  }, 30_000); // Headroom over the 4-5s wall time of the spawned process under load
 });

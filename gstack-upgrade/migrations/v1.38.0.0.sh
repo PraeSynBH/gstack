@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Migration: v1.36.0.0 — add root-level design + test-plan patterns to
+# Migration: v1.38.0.0 — add root-level design + test-plan patterns to
 # .brain-allowlist, .brain-privacy-map.json, and .gitattributes (#1452).
 #
 # Why a migration: gstack-artifacts-init regenerates these files but also
@@ -21,7 +21,7 @@ PRIVACY="${GSTACK_HOME}/.brain-privacy-map.json"
 GITATTRS="${GSTACK_HOME}/.gitattributes"
 
 MIGRATION_DIR="${GSTACK_HOME}/.migrations"
-DONE="${MIGRATION_DIR}/v1.36.0.0.done"
+DONE="${MIGRATION_DIR}/v1.38.0.0.done"
 
 mkdir -p "${MIGRATION_DIR}" 2>/dev/null || true
 if [ -f "${DONE}" ]; then
@@ -67,12 +67,12 @@ if [ -f "${PRIVACY}" ]; then
           added_any=1
         else
           rm -f "${PRIVACY}.tmp"
-          echo "  [v1.36.0.0] WARN: jq failed to patch ${PRIVACY}; skipping pattern ${PATTERN}." >&2
+          echo "  [v1.38.0.0] WARN: jq failed to patch ${PRIVACY}; skipping pattern ${PATTERN}." >&2
         fi
       fi
     done
   else
-    echo "  [v1.36.0.0] WARN: jq not found; skipping privacy-map repair. Install jq and re-run gstack-upgrade, or run gstack-artifacts-init manually." >&2
+    echo "  [v1.38.0.0] WARN: jq not found; skipping privacy-map repair. Install jq and re-run gstack-upgrade, or run gstack-artifacts-init manually." >&2
   fi
 fi
 
@@ -92,7 +92,7 @@ fi
 touch "${DONE}"
 
 if [ "${added_any}" = "1" ]; then
-  echo "  [v1.36.0.0] allowlist/privacy-map/gitattributes patched for root-level design + test-plan artifacts (idempotent)" >&2
+  echo "  [v1.38.0.0] allowlist/privacy-map/gitattributes patched for root-level design + test-plan artifacts (idempotent)" >&2
 fi
 
 # NEVER `git commit + push` from this migration. The user controls when the
