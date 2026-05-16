@@ -5,7 +5,7 @@
 ## **Conductor workspaces wire `GSTACK_*` keys straight into gbrain embeddings and paid evals.**
 ## **No more sourcing keys from your shell before every paid run.**
 
-Conductor exposes API keys under a `GSTACK_` prefix so it never collides with whatever the host system has set. The trade-off is that gbrain's embedding pipeline and `@anthropic-ai/claude-agent-sdk` read the canonical `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` names. The new `lib/conductor-env-shim.ts` bridges the gap: it promotes the prefixed form to canonical when canonical is empty. Four TS entry points import the shim as a side effect (`gstack-gbrain-sync.ts`, `gstack-model-benchmark`, `preflight-agent-sdk.ts`, `e2e-helpers.ts`). `USING_GBRAIN_WITH_GSTACK.md` and `CONTRIBUTING.md` document the pattern, plus the checklist for adding the import to new entry points.
+Conductor explicitly strips `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` from every workspace's process env, so `.env` copies and `~/.zshrc` exports never reach gbrain's embedding pipeline or `@anthropic-ai/claude-agent-sdk`. The fix path is `GSTACK_ANTHROPIC_API_KEY` / `GSTACK_OPENAI_API_KEY` — Conductor passes those through untouched. The new `lib/conductor-env-shim.ts` closes the loop on the gstack side: it promotes the prefixed form to canonical when canonical is empty. Four TS entry points import the shim as a side effect (`gstack-gbrain-sync.ts`, `gstack-model-benchmark`, `preflight-agent-sdk.ts`, `e2e-helpers.ts`). `README.md`, `USING_GBRAIN_WITH_GSTACK.md`, and `CONTRIBUTING.md` document the pattern, plus the checklist for adding the import to new entry points.
 
 ### The numbers that matter
 

@@ -258,9 +258,9 @@ Gbrain itself ships with these that gstack wraps:
 
 ## Conductor + GSTACK_* env vars
 
-If you run gstack inside a [Conductor](https://conductor.build) workspace, the process env doesn't inherit your interactive shell — `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` are typically empty even when they're set in `~/.zshrc`. Recent Conductor versions instead inject `GSTACK_ANTHROPIC_API_KEY` and `GSTACK_OPENAI_API_KEY` directly into the workspace env.
+If you run gstack inside a [Conductor](https://conductor.build) workspace, **Conductor explicitly strips `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` from the workspace env.** Setting them in `~/.zshrc` or `.env` won't help — the strip happens after env inheritance. To get a usable API key into a workspace, set `GSTACK_ANTHROPIC_API_KEY` and `GSTACK_OPENAI_API_KEY` in Conductor's workspace env config instead. Conductor passes those through untouched.
 
-`lib/conductor-env-shim.ts` bridges the gap: when imported as a side effect (`import "../lib/conductor-env-shim";`), it promotes `GSTACK_FOO_API_KEY` to `FOO_API_KEY` for any subprocess that doesn't see the canonical name. The shim is already wired into:
+`lib/conductor-env-shim.ts` bridges the gap on the gstack side: when imported as a side effect (`import "../lib/conductor-env-shim";`), it promotes `GSTACK_FOO_API_KEY` to `FOO_API_KEY` for any subprocess that doesn't see the canonical name. The shim is already wired into:
 
 - `bin/gstack-gbrain-sync.ts` — so `/sync-gbrain` picks up OpenAI for embeddings
 - `bin/gstack-model-benchmark` — so `--judge` runs work without manual env mapping
