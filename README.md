@@ -229,6 +229,8 @@ Each skill feeds into the next. `/office-hours` writes a design doc that `/plan-
 | `/setup-gbrain` | **GBrain Onboarding** — from zero to running gbrain in under 5 minutes. PGLite local, Supabase existing URL, or auto-provision a new Supabase project via Management API. MCP registration for Claude Code + per-repo trust triad (read-write/read-only/deny). [Full guide](USING_GBRAIN_WITH_GSTACK.md). |
 | `/sync-gbrain` | **Keep Brain Current** — re-index this repo's code into gbrain via `gbrain sources add` + `gbrain sync --strategy code`, refresh the `## GBrain Search Guidance` block in CLAUDE.md, and auto-remove guidance when the capability check fails. `--incremental` (default), `--full`, `--dry-run`. Idempotent; safe to re-run. |
 | `/gstack-upgrade` | **Self-Updater** — upgrade gstack to latest. Detects global vs vendored install, syncs both, shows what changed. |
+| `/ios-qa` | **iOS Live-Device QA (v1.40+)** — drive a real iPhone over USB CoreDevice via an embedded `StateServer` in the app. Read Swift source, codegen typed `@Observable` accessors, run the agent loop. Optional `--tailnet` flag turns your Mac mini into a DIY device farm reachable by OpenClaw or any HTTP-capable agent on your Tailscale tailnet. Capability-tier allowlist (observe/interact/mutate/restore), per-device session lock, audit log. |
+| `/ios-fix`, `/ios-design-review`, `/ios-clean`, `/ios-sync` | iOS bug-fix loop, designer's-eye HIG audit, debug-bridge cleanup, and accessor resync. See `docs/skills.md`. |
 
 ### New binaries (v0.19)
 

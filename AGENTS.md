@@ -75,6 +75,16 @@ Invoke them by name (e.g., `/office-hours`).
 | `/setup-browser-cookies` | Import cookies from your real browser for authenticated testing. |
 | `/pair-agent` | Pair a remote AI agent (OpenClaw, Codex, etc.) with your browser. |
 
+### iOS device-farm (v1.40.0.0+)
+
+| Skill | What it does |
+|-------|-------------|
+| `/ios-qa` | Live-device iOS QA via USB CoreDevice tunnel + embedded StateServer. Optionally exposes the device over Tailscale so remote agents can drive it. |
+| `/ios-fix` | Autonomous iOS bug fixer with regression snapshot capture. |
+| `/ios-design-review` | Designer's-eye QA on a real iPhone — 10-dimension Apple HIG rubric. |
+| `/ios-clean` | Convenience: strip DebugBridge + #if DEBUG wiring before a Release build. |
+| `/ios-sync` | Regenerate the iOS debug bridge against the latest upstream templates. |
+
 ### Safety + scoping
 
 | Skill | What it does |
