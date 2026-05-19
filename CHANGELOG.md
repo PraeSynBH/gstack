@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.41.0.0] - 2026-05-18
+## [1.42.0.0] - 2026-05-19
 
 ## **Daegu wave: 23 community-filed bugs land as one bisect-clean PR with the documented sidebar security stack finally enforced.**
 ## **Every full-page screenshot stops bricking the vision API at 2000px, the Windows installer stops failing on Bun shell parsing, `/codex review` works on Codex CLI 0.130+, and the L4 prompt-injection classifier actually runs.**
