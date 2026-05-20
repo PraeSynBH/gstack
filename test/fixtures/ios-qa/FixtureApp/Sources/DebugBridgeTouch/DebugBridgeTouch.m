@@ -188,7 +188,13 @@ static IOHIDEventRef DBT_IOHIDEventWithTouch(UITouch *touch) {
 
 #pragma mark - SwiftUI-aware hit test (iOS 18+)
 
-static UIView *DBT_HitTestView(UIWindow *window, CGPoint point) {
+// Returns `id` because iOS 18's _hitTestWithContext: can return either a UIView
+// OR a SwiftUI.UIKitGestureContainer (a plain UIResponder, NOT a UIView).
+// The latter is the case for SwiftUI Buttons. KIF's observation: the returned
+// responder is still compatible with UITouch.setView: even when it isn't a
+// UIView — so we pass it through as-is. Filtering by isKindOfClass:UIView
+// here would drop every SwiftUI Button tap silently. Mirrors KIF PR #1323.
+static id DBT_HitTestView(UIWindow *window, CGPoint point) {
     UIView *fallback = [window hitTest:point withEvent:nil];
 
     if (@available(iOS 18.0, *)) {
@@ -206,8 +212,8 @@ static UIView *DBT_HitTestView(UIWindow *window, CGPoint point) {
                     found = [current _hitTestWithContext:ctx];
                     current = current.superview;
                 }
-                if (found && [found isKindOfClass:[UIView class]]) {
-                    return (UIView *)found;
+                if (found) {
+                    return found;
                 }
             }
         }
@@ -222,7 +228,7 @@ static UIView *DBT_HitTestView(UIWindow *window, CGPoint point) {
 + (BOOL)sendTapAtPoint:(CGPoint)point inWindow:(UIWindow *)window {
     if (!window) return NO;
 
-    UIView *hit = DBT_HitTestView(window, point);
+    id hit = DBT_HitTestView(window, point);
     if (!hit) return NO;
 
     // Build a single synthetic UITouch via private setters. Order matters —
@@ -231,17 +237,17 @@ static UIView *DBT_HitTestView(UIWindow *window, CGPoint point) {
     [touch setWindow:window];
     [touch setTapCount:1];
     [touch _setLocationInWindow:point resetPrevious:YES];
-    [touch setView:hit];
+    // setView: typed UIView * but accepts SwiftUI.UIKitGestureContainer
+    // (UIResponder) too — that's how SwiftUI Buttons get routed on iOS 18+.
+    [touch setView:(UIView *)hit];
     [touch setPhase:UITouchPhaseBegan];
     if ([touch respondsToSelector:@selector(_setIsFirstTouchForView:)]) {
         [touch _setIsFirstTouchForView:YES];
     }
     [touch setTimestamp:[[NSProcessInfo processInfo] systemUptime]];
-    // KIF sets the gestureView too — required for SwiftUI Button gesture
-    // recognition. Without this the gesture system sees the touch as
-    // unattached and drops it.
-    if ([touch respondsToSelector:@selector(setGestureView:)]) {
-        [touch setGestureView:hit];
+    if ([touch respondsToSelector:@selector(setGestureView:)] &&
+        [hit isKindOfClass:[UIView class]]) {
+        [touch setGestureView:(UIView *)hit];
     }
 
     // Attach a real IOHIDEvent (required iOS 9+).
