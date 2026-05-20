@@ -85,6 +85,15 @@ Invoke them by name (e.g., `/office-hours`).
 | `/ios-clean` | Convenience: strip DebugBridge + #if DEBUG wiring before a Release build. |
 | `/ios-sync` | Regenerate the iOS debug bridge against the latest upstream templates. |
 
+Companion CLIs (run on the Mac that's plugged into the device):
+
+| Command | What it does |
+|---------|-------------|
+| `gstack-ios-qa-daemon` | Mac-side broker. Loopback by default; `--tailnet` adds a Tailscale-facing listener with capability tiers and audit logging. |
+| `gstack-ios-qa-mint` | Owner-grant CLI for the tailnet allowlist (`grant`/`revoke`/`list`). |
+
+End-to-end walkthrough: [docs/howto-ios-testing-with-gstack.md](docs/howto-ios-testing-with-gstack.md).
+
 ### Safety + scoping
 
 | Skill | What it does |
