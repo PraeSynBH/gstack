@@ -17,13 +17,9 @@ export function defaultAllowlistPath(): string {
 }
 
 export async function loadAllowlist(path: string = defaultAllowlistPath()): Promise<Allowlist> {
+  let raw: string;
   try {
-    const raw = await readFile(path, 'utf-8');
-    const parsed = JSON.parse(raw) as Allowlist;
-    if (parsed.version !== 1 || !Array.isArray(parsed.entries)) {
-      throw new Error('invalid_allowlist');
-    }
-    return parsed;
+    raw = await readFile(path, 'utf-8');
   } catch (err: unknown) {
     const e = err as { code?: string };
     if (e.code === 'ENOENT') {
@@ -31,6 +27,17 @@ export async function loadAllowlist(path: string = defaultAllowlistPath()): Prom
     }
     throw err;
   }
+  // Empty-file path (mktemp default, partial write, manual `: > file`): treat
+  // as "no entries yet" rather than a parse error. The first grant will fill
+  // it in atomically via saveAllowlist.
+  if (raw.trim() === '') {
+    return { version: 1, entries: [] };
+  }
+  const parsed = JSON.parse(raw) as Allowlist;
+  if (parsed.version !== 1 || !Array.isArray(parsed.entries)) {
+    throw new Error('invalid_allowlist');
+  }
+  return parsed;
 }
 
 export async function saveAllowlist(allowlist: Allowlist, path: string = defaultAllowlistPath()): Promise<void> {
