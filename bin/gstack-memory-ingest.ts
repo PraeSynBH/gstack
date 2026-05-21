@@ -1293,7 +1293,9 @@ let _signalHandlersInstalled = false;
  */
 function stagingDirIsCheckpointed(stagingDir: string): boolean {
   try {
-    const cpPath = join(homedir(), ".gbrain", "import-checkpoint.json");
+    // Read HOME from env so tests can redirect; homedir() caches.
+    const home = process.env.HOME || homedir();
+    const cpPath = join(home, ".gbrain", "import-checkpoint.json");
     if (!existsSync(cpPath)) return false;
     const raw = readFileSync(cpPath, "utf-8");
     const cp = JSON.parse(raw) as { dir?: string };

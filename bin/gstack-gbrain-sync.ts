@@ -137,7 +137,11 @@ interface GbrainCheckpoint {
 }
 
 export function readGbrainCheckpoint(): GbrainCheckpoint | null {
-  const cpPath = join(homedir(), ".gbrain", "import-checkpoint.json");
+  // Read HOME from env so tests can redirect via process.env.HOME = ...
+  // (Node/Bun's os.homedir() caches at process start and ignores later
+  // mutations.)
+  const home = process.env.HOME || homedir();
+  const cpPath = join(home, ".gbrain", "import-checkpoint.json");
   if (!existsSync(cpPath)) return null;
   try {
     const raw = readFileSync(cpPath, "utf-8");
