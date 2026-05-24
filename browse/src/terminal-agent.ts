@@ -77,7 +77,7 @@ process.on('unhandledRejection', (reason) => {
   console.error('[terminal-agent] unhandledRejection:', reason);
 });
 
-interface PtySession {
+export interface PtySession {
   proc: any | null;        // Bun.Subprocess once spawned
   cols: number;
   rows: number;
@@ -185,7 +185,7 @@ const DETACH_WINDOW_MS = parseInt(
  * sequences (CSI ?1049h / CSI ?1049l) and updates session.altScreenActive
  * so the re-attach prelude knows whether to re-enter alt-screen.
  */
-function appendToRingBuffer(session: PtySession, frame: Buffer): void {
+export function appendToRingBuffer(session: PtySession, frame: Buffer): void {
   session.ringBuffer.push(frame);
   session.ringBufferBytes += frame.length;
   while (session.ringBufferBytes > RING_BUFFER_MAX_BYTES && session.ringBuffer.length > 1) {
@@ -219,7 +219,7 @@ function appendToRingBuffer(session: PtySession, frame: Buffer): void {
  * is what lets us prepend reset codes without clobbering the live stream
  * that resumes immediately after.
  */
-function buildReplayPayload(session: PtySession): Buffer {
+export function buildReplayPayload(session: PtySession): Buffer {
   const parts: Buffer[] = [];
   parts.push(Buffer.from('\x1b[!p'));
   if (session.altScreenActive) parts.push(Buffer.from('\x1b[?1049h'));
