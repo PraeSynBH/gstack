@@ -1,15 +1,20 @@
 /**
  * Per-skill SKILL.md size budget regression (v1.46.0.0 T5).
  *
- * Asserts that no skill's generated SKILL.md grew beyond the v1.44.1
+ * Asserts that no skill's generated SKILL.md grew beyond the v1.47.0.0
  * baseline. Catches preamble/resolver changes that bloat skills back to
  * the pre-compression size. Free — pure file IO + JSON diff.
+ *
+ * Baseline rebased v1.44.1 → v1.47.0.0 in the AskUserQuestion split-rule
+ * PR after main merged GSTACK_PLAN_MODE + /spec, pushing the v1.44.1
+ * anchor past the 5% ratchet. Historical v1.44.1.json and v1.46.0.0.json
+ * are retained in test/fixtures/ for reference.
  *
  * Why a separate test from skill-budget-regression.test.ts: that one
  * compares LIVE eval runs (tool calls, turns, cost); this one compares
  * static SKILL.md sizes. Both gate-tier.
  *
- * The baseline lives at test/fixtures/parity-baseline-v1.44.1.json,
+ * The baseline lives at test/fixtures/parity-baseline-v1.47.0.0.json,
  * captured by scripts/capture-baseline.ts before any Phase A work landed.
  *
  * Override:
@@ -30,7 +35,7 @@ import { captureBaseline, type ParityBaseline } from './helpers/capture-parity-b
 import { logBudgetOverride } from './helpers/budget-override';
 
 const REPO_ROOT = path.resolve(import.meta.dir, '..');
-const BASELINE_PATH = path.join(REPO_ROOT, 'test', 'fixtures', 'parity-baseline-v1.44.1.json');
+const BASELINE_PATH = path.join(REPO_ROOT, 'test', 'fixtures', 'parity-baseline-v1.47.0.0.json');
 
 // Default per-skill ratio is 1.05 (5% growth tolerance). T4 catalog trim
 // MOVES text from frontmatter (always-loaded catalog) to a body section
@@ -49,11 +54,11 @@ interface Regression {
 }
 
 describe('SKILL.md size budget regression (gate, free)', () => {
-  test('parity-baseline-v1.44.1.json exists', () => {
+  test('parity-baseline-v1.47.0.0.json exists', () => {
     expect(fs.existsSync(BASELINE_PATH)).toBe(true);
   });
 
-  test('no skill exceeds v1.44.1 baseline size × ratio', () => {
+  test('no skill exceeds v1.47.0.0 baseline size × ratio', () => {
     const baseline: ParityBaseline = JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf-8'));
     const current = captureBaseline({ repoRoot: REPO_ROOT });
 
@@ -94,7 +99,7 @@ describe('SKILL.md size budget regression (gate, free)', () => {
       `  ${r.skill}: ${r.beforeBytes} → ${r.afterBytes} bytes (×${r.growth.toFixed(2)})`,
     ).join('\n');
     throw new Error(
-      `${regressions.length} skill(s) regressed past v1.44.1 baseline × ${RATIO}:\n${msg}\n` +
+      `${regressions.length} skill(s) regressed past v1.47.0.0 baseline × ${RATIO}:\n${msg}\n` +
       `Override: set GSTACK_SIZE_BUDGET_OVERRIDE_REASON="why this is OK" to allow and audit-log.`,
     );
   });
@@ -120,7 +125,7 @@ describe('SKILL.md size budget regression (gate, free)', () => {
       return;
     }
     throw new Error(
-      `Total corpus regressed past v1.44.1 baseline × ${RATIO}: ` +
+      `Total corpus regressed past v1.47.0.0 baseline × ${RATIO}: ` +
       `${baseline.totalCorpusBytes} → ${current.totalCorpusBytes} bytes (×${ratio.toFixed(3)}). ` +
       `Override: set GSTACK_SIZE_BUDGET_OVERRIDE_REASON to allow.`,
     );
@@ -130,13 +135,13 @@ describe('SKILL.md size budget regression (gate, free)', () => {
    * Gap E (v1.46.0.0): per-skill min-size floor.
    *
    * The existing skill-coverage-floor enforces body ≥ 200 bytes, which is
-   * a tiny noise floor. A skill that was 100 KB at v1.44.1 and shrinks to
+   * a tiny noise floor. A skill that was 100 KB at v1.47.0.0 and shrinks to
    * 250 bytes passes that check despite losing 99.75% of content. The
    * parity-suite content invariants cover this for 10 hand-picked skills
    * (cso, ship, plan-ceo, etc.); the remaining 41 skills had no per-skill
    * shrinkage floor.
    *
-   * Floor: 80% of the v1.44.1 baseline. v1.46 actual shrinkage is <1% per
+   * Floor: 80% of the v1.47.0.0 baseline. v1.46 actual shrinkage is <1% per
    * skill, so this is a comfortable ceiling that still catches accidental
    * mass deletion (e.g., a refactor that strips the body of a skill).
    *
@@ -146,7 +151,7 @@ describe('SKILL.md size budget regression (gate, free)', () => {
    * skeletons. When that lands, add them to SECTIONS_EXTRACTED so the floor
    * relaxes for them.
    */
-  test('no skill shrinks past 80% of v1.44.1 baseline (catches accidental body strip)', () => {
+  test('no skill shrinks past 80% of v1.47.0.0 baseline (catches accidental body strip)', () => {
     const baseline: ParityBaseline = JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf-8'));
     const current = captureBaseline({ repoRoot: REPO_ROOT });
     const MIN_RATIO = 0.80; // a skill at <80% of its v1.44 size signals mass-deletion
@@ -187,7 +192,7 @@ describe('SKILL.md size budget regression (gate, free)', () => {
       `  ${u.skill}: ${u.beforeBytes} → ${u.afterBytes} bytes (×${u.ratio.toFixed(2)} — below ${MIN_RATIO} floor)`,
     ).join('\n');
     throw new Error(
-      `${undershoots.length} skill(s) shrunk past v1.44.1 × ${MIN_RATIO} floor:\n${msg}\n` +
+      `${undershoots.length} skill(s) shrunk past v1.47.0.0 × ${MIN_RATIO} floor:\n${msg}\n` +
       `This usually signals accidental body strip (e.g., a resolver returning empty, a ` +
       `template losing a section). If the shrinkage is intentional (e.g., the skill moved ` +
       `to the sections/ pattern), add it to SECTIONS_EXTRACTED in this test. Override: ` +

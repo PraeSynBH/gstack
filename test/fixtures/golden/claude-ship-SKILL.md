@@ -107,6 +107,19 @@ _CHECKPOINT_MODE=$(~/.claude/skills/gstack/bin/gstack-config get checkpoint_mode
 _CHECKPOINT_PUSH=$(~/.claude/skills/gstack/bin/gstack-config get checkpoint_push 2>/dev/null || echo "false")
 echo "CHECKPOINT_MODE: $_CHECKPOINT_MODE"
 echo "CHECKPOINT_PUSH: $_CHECKPOINT_PUSH"
+# Plan-mode hint for skills like /spec that branch behavior on plan-mode state.
+# Claude Code exposes plan mode via system reminders; we detect best-effort
+# from CLAUDE_PLAN_FILE (set by the harness when plan mode is active) and
+# fall back to "inactive". Codex hosts and Claude execution mode both end up
+# inactive, which is the safe default (defaults to file+execute pipeline).
+if [ -n "${CLAUDE_PLAN_FILE:-}${GSTACK_PLAN_MODE_FORCE:-}" ]; then
+  export GSTACK_PLAN_MODE="active"
+elif [ "${GSTACK_PLAN_MODE:-}" = "active" ]; then
+  export GSTACK_PLAN_MODE="active"
+else
+  export GSTACK_PLAN_MODE="inactive"
+fi
+echo "GSTACK_PLAN_MODE: $GSTACK_PLAN_MODE"
 [ -n "$OPENCLAW_SESSION" ] && echo "SPAWNED_SESSION: true" || true
 ```
 
@@ -238,6 +251,7 @@ Key routing rules:
 - Ship/deploy/PR → invoke /ship or /land-and-deploy
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
+- Author a backlog-ready spec/issue → invoke /spec
 ```
 
 Then commit the change: `git add CLAUDE.md && git commit -m "chore: add gstack skill routing rules to CLAUDE.md"`
@@ -2957,6 +2971,39 @@ you missed it.>
 <If plan file found: completion checklist summary from Step 8>
 <If no plan file: "No plan file detected.">
 <If plan items deferred: list deferred items>
+
+## Linked Spec
+<Auto-detect: look for /spec archives matching this branch via:
+  eval "$(${ctx.paths.binDir}/gstack-paths)"
+  eval "$(${ctx.paths.binDir}/gstack-slug)"
+  CURRENT_BRANCH=$(git branch --show-current)
+  SPEC_ARCHIVES="$GSTACK_STATE_ROOT/projects/$SLUG/specs"
+  # Find newest archive whose spec_branch frontmatter matches current branch (or one of its
+  # parents — if spec spawned worktree spec/<slug>-$$, the spawned worktree IS where /ship runs).
+  SPEC_FILE=$(grep -l "^spec_branch: $CURRENT_BRANCH$" "$SPEC_ARCHIVES"/*.md 2>/dev/null | head -1)
+  [ -z "$SPEC_FILE" ] && exit  # no spec; omit this section entirely
+  SPEC_ISSUE=$(grep "^spec_issue_number:" "$SPEC_FILE" | cut -d' ' -f2)
+  [ -z "$SPEC_ISSUE" ] && exit  # spec archive exists but no issue number; omit
+
+  # CONDITIONAL Closes #N (codex F4): only add when Plan Completion above is "complete".
+  # If the plan completion gate from Step 8 reports any deferred or failed items, emit:
+  #   "Linked to #$SPEC_ISSUE (partial delivery — NOT auto-closing; close manually after follow-up)"
+  # If Plan Completion is fully complete, emit:
+  #   "Closes #$SPEC_ISSUE"
+  # and include the Closes #N line in the PR body so GitHub auto-closes on merge.>
+
+<Format:
+  Closes #<N>
+
+  This PR delivers the spec at <archive path relative to repo root>.
+  Spec filed: <spec_filed_at from frontmatter>>
+
+<If partial delivery, emit instead:
+  Linked to #<N> (partial delivery — not auto-closing).
+  Deferred items: <list from Plan Completion>.
+  Close #<N> manually after follow-up lands.>
+
+<If no /spec archive matches this branch: omit this entire section.>
 
 ## Verification Results
 <If verification ran: summary from Step 8.1 (N PASS, M FAIL, K SKIPPED)>
