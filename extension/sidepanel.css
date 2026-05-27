@@ -1137,6 +1137,21 @@ footer {
   transition: color 150ms;
 }
 .footer-port:hover { color: var(--text-label); }
+.footer-mem {
+  color: var(--text-meta);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  transition: color 150ms;
+}
+.footer-mem.warn {
+  color: #f59e0b;
+}
+.footer-mem.bad {
+  color: #ef4444;
+}
 .port-input {
   width: 56px;
   padding: 2px 6px;

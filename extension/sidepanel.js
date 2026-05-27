@@ -292,6 +292,97 @@ async function connectSSE() {
   });
 }
 
+// ─── Memory Footer Readout ──────────────────────────────────────
+//
+// Polls /memory every 30s and renders "RSS: 1.4 GB · 12 tabs" in the
+// footer. Backs off to 5min if a poll takes > 2s (Codex flag — diagnostic
+// shouldn't add load when the browser is already unhealthy). Uses Bearer
+// auth like /refs above; /memory is a plain GET so EventSource semantics
+// don't apply.
+
+const MEM_POLL_FAST_MS = 30_000;
+const MEM_POLL_SLOW_MS = 5 * 60_000;
+const MEM_POLL_TIMEOUT_MS = 8_000;
+const MEM_POLL_SLOW_THRESHOLD_MS = 2_000;
+let memPollTimer = null;
+let memPollMode = 'fast'; // 'fast' | 'slow'
+
+function fmtBytesShort(n) {
+  if (typeof n !== 'number' || isNaN(n)) return '?';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(0) + ' MB';
+  return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+}
+
+function renderMemFooter(snapshot) {
+  const el = document.getElementById('footer-mem');
+  if (!el) return;
+  const bunRss = snapshot?.bunServer?.rss ?? 0;
+  const tabCount = Array.isArray(snapshot?.tabs) ? snapshot.tabs.length : 0;
+  el.textContent = `${fmtBytesShort(bunRss)} · ${tabCount} tabs`;
+  // Color thresholds: ~2 GB Bun RSS or 50 tabs is "watch this"; ~8 GB or
+  // 200 tabs is "this is the cliff" (matches the 200-tab guardrail).
+  el.classList.remove('warn', 'bad');
+  if (bunRss > 8 * 1024 * 1024 * 1024 || tabCount > 200) el.classList.add('bad');
+  else if (bunRss > 2 * 1024 * 1024 * 1024 || tabCount > 50) el.classList.add('warn');
+}
+
+async function pollMemoryOnce() {
+  if (!serverUrl || !serverToken) return { ok: false, slow: false };
+  const start = Date.now();
+  try {
+    const resp = await fetch(`${serverUrl}/memory`, {
+      headers: { 'Authorization': `Bearer ${serverToken}` },
+      signal: AbortSignal.timeout(MEM_POLL_TIMEOUT_MS),
+      credentials: 'include',
+    });
+    const elapsed = Date.now() - start;
+    if (!resp.ok) return { ok: false, slow: elapsed > MEM_POLL_SLOW_THRESHOLD_MS };
+    const snapshot = await resp.json();
+    renderMemFooter(snapshot);
+    return { ok: true, slow: elapsed > MEM_POLL_SLOW_THRESHOLD_MS };
+  } catch (err) {
+    const elapsed = Date.now() - start;
+    // Don't log every poll failure — common during browser restarts / restoring
+    // sessions. Only log on the slow path so the user sees something in the
+    // console if the diagnostic itself is misbehaving.
+    if (elapsed > MEM_POLL_SLOW_THRESHOLD_MS) {
+      console.debug('[gstack sidebar] /memory poll slow/failed:', elapsed, 'ms', err && err.message);
+    }
+    return { ok: false, slow: elapsed > MEM_POLL_SLOW_THRESHOLD_MS };
+  }
+}
+
+function scheduleNextMemPoll(delayMs) {
+  if (memPollTimer) clearTimeout(memPollTimer);
+  memPollTimer = setTimeout(async () => {
+    const { ok, slow } = await pollMemoryOnce();
+    if (!ok || slow) {
+      memPollMode = 'slow';
+      scheduleNextMemPoll(MEM_POLL_SLOW_MS);
+    } else {
+      // Successful + fast → back to fast cadence.
+      if (memPollMode === 'slow') memPollMode = 'fast';
+      scheduleNextMemPoll(MEM_POLL_FAST_MS);
+    }
+  }, delayMs);
+}
+
+function startMemPolling() {
+  if (memPollTimer) return; // already running
+  // Kick off an immediate poll so the footer populates within ~1s of sidebar
+  // open, instead of waiting 30s for the first cycle.
+  scheduleNextMemPoll(500);
+}
+
+function stopMemPolling() {
+  if (memPollTimer) {
+    clearTimeout(memPollTimer);
+    memPollTimer = null;
+  }
+}
+
 // ─── Refs Tab ───────────────────────────────────────────────────
 
 async function fetchRefs() {
@@ -893,9 +984,16 @@ function updateConnection(url, token) {
     chrome.runtime.sendMessage({ type: 'sidebarOpened' }).catch(() => {});
     connectSSE();
     connectInspectorSSE();
+    startMemPolling();
   } else {
     document.getElementById('footer-dot').className = 'dot';
     document.getElementById('footer-port').textContent = '';
+    const memEl = document.getElementById('footer-mem');
+    if (memEl) {
+      memEl.textContent = '';
+      memEl.classList.remove('warn', 'bad');
+    }
+    stopMemPolling();
     setActionButtonsEnabled(false);
     if (wasConnected) startReconnect();
   }
