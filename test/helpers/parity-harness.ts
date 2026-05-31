@@ -226,7 +226,14 @@ export const PARITY_INVARIANTS: ParityInvariant[] = [
     minBytes: 120_000,
   },
   {
+    // Carved (v2 plan T9): skeleton SKILL.md + sections/review-sections.md.
+    // Content + size floors run against the union (relocated prose still counts);
+    // maxSkeletonBytes asserts the always-loaded skeleton shrank from the ~138KB
+    // monolith to ~81KB (measured 80,731 B, -42%). Headroom to 90KB so a small
+    // skeleton edit doesn't trip CI, but a 10KB regression does.
     skill: 'plan-ceo-review',
+    sectioned: true,
+    maxSkeletonBytes: 90_000,
     mustContain: [
       'SCOPE EXPANSION',
       'SELECTIVE EXPANSION',
