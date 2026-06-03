@@ -94,7 +94,7 @@ describe('selectTests', () => {
     expect(result.selected).toContain('plan-review-prosons-hardstop-neg');
     expect(result.selected).toContain('plan-review-prosons-neutral-neg');
     // v1.13.x real-PTY E2E batch entries that also depend on plan-ceo-review/**
-    expect(result.selected).toContain('ask-user-question-format-pty');
+    expect(result.selected).toContain('auq-format-gate');
     expect(result.selected).toContain('plan-ceo-mode-routing');
     expect(result.selected).toContain('autoplan-chain-pty');
     // Per-finding count + review-report-at-bottom (v1.21.x)
