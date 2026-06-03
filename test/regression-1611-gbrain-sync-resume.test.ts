@@ -350,3 +350,30 @@ describe("#1802 checkOwnedStagingDir — ownership matrix", () => {
     expect(sync).toMatch(/checkOwnedStagingDir\(stagingDir, gstackHome\)/);
   });
 });
+
+// ── #1802 D1: remote-http persistent dir must never hit cleanupStagingDir ───
+// In remote-http mode `stagingDir` is the PERSISTENT transcript dir
+// (makePersistentTranscriptDir, under ~/.gstack/transcripts/) that
+// gstack-brain-sync push consumes. The finally runs on the remote-http `return`,
+// so the cleanup call there must be gated on `!remoteHttpMode` — otherwise the
+// guard refuses it on every sync (false "prevent data loss" warning) and, pre-
+// gate, the dir was deleted outright (broken artifacts handoff).
+describe("#1802 D1 — remote-http finally gate (static invariant)", () => {
+  const ingest = fs.readFileSync(
+    path.join(ROOT, "bin", "gstack-memory-ingest.ts"),
+    "utf-8",
+  );
+
+  test("finally gates cleanupStagingDir on !remoteHttpMode", () => {
+    expect(ingest).toMatch(/if \(!remoteHttpMode\) cleanupStagingDir\(stagingDir\)/);
+  });
+
+  test("the only finally-scoped cleanup call is the gated one", () => {
+    // Locate the finally block and assert it does not contain a bare
+    // `cleanupStagingDir(stagingDir);` that would run regardless of mode.
+    const finallyAt = ingest.lastIndexOf("} finally {");
+    expect(finallyAt).toBeGreaterThan(-1);
+    const finallySlice = ingest.slice(finallyAt, finallyAt + 800);
+    expect(finallySlice).not.toMatch(/^\s*cleanupStagingDir\(stagingDir\);/m);
+  });
+});

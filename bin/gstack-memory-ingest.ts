@@ -1778,7 +1778,15 @@ async function ingestPass(args: CliArgs): Promise<BulkResult> {
       );
     }
   } finally {
-    cleanupStagingDir(stagingDir);
+    // #1802 D1: in remote-http mode `stagingDir` is the PERSISTENT transcript
+    // dir (makePersistentTranscriptDir, under ~/.gstack/transcripts/) that
+    // gstack-brain-sync push must pick up — it is NOT a `.staging-ingest-*` dir
+    // and must never be deleted here. The remote-http branch above already
+    // documents this intent ("Skip the ... cleanupStagingDir paths"), but a
+    // `finally` runs on its `return`, so the gate has to live here. Gating on
+    // mode (rather than widening the ownership guard) keeps checkOwnedStagingDir
+    // strict: it only ever sees `.staging-ingest-*` dirs.
+    if (!remoteHttpMode) cleanupStagingDir(stagingDir);
     _activeStagingDir = null;
   }
 
