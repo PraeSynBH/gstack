@@ -69,6 +69,66 @@ Upgrade and keep syncing.
   `#1611` resume regression suite grew to 64 assertions covering the poison
   matrix, the remote-http gate, timeout-preserve, and resume failure-mapping.
 
+## [1.56.0.0] - 2026-06-03
+
+## **Five heavy skills now load their bulk on demand, the shared question preamble slimmed corpus-wide, and a paranoid test suite proves the questions never got worse.**
+
+The token-reduction program lands its biggest wave. Five of the heaviest skills — `/plan-ceo-review`, `/office-hours`, `/plan-eng-review`, `/plan-design-review`, and `/plan-devex-review` — are now a small always-loaded skeleton plus an on-demand `sections/` file the agent opens only when it reaches the work. The conversational front half (Step 0 scope, the live interview) stays always-loaded; the deep review bodies, design-doc templates, outside-voice rules, and required-output writers move behind a single STOP-Read. The shared AskUserQuestion preamble also shed its rarely-needed CJK escaping manual, so every interactive skill is a little lighter at once. And because the most user-facing surface in gstack is the question it asks you, a new paranoid test suite proves that slimming a skill never strands or degrades that question.
+
+### The numbers that matter
+
+Measured from the generated skeletons (`wc -c <skill>/SKILL.md`), regenerated for all hosts:
+
+| Skill | Before | After | Δ |
+|-------|--------|-------|---|
+| plan-ceo-review | 138,838 B | 80,731 B | -42.0% |
+| office-hours | 118,280 B | 88,975 B | -24.8% |
+| plan-eng-review | 106,984 B | 54,892 B | -48.7% |
+| plan-design-review | 112,057 B | 76,024 B | -32.2% |
+| plan-devex-review | 110,621 B | 69,658 B | -37.0% |
+
+On top of the per-skill carves, the shared AskUserQuestion preamble dropped its inline CJK manual to a one-line rule + a doc pointer, trimming ~29,524 B across the Claude-host corpus (every interactive skill, ~900 B each).
+
+The AskUserQuestion proof, measured by SDK capture (`test/skill-e2e-auq-matrix.test.ts`):
+
+| Guarantee | Result |
+|-----------|--------|
+| Carved vs verbose, same trigger | 7/7 format, substance 5 == 7/7 format, substance 5 (no degradation) |
+| Matrix across 7 AUQ-heavy skills | all 7/7 format, substance 4-5 |
+| Same trigger 3× (consistency) | stable, every format element every run |
+| AUQ format spec always-loaded | guaranteed in every skeleton (Layer 0) |
+
+Every review runs identical pass for pass; the only thing that changed is what sits in context before the work begins.
+
+### What this means for you
+
+The skills you run most start markedly lighter: a `/plan-ceo-review` opens ~42% smaller, the others 25-49%, and they pull in their review bodies only when they reach them. You will not notice any behavior change in the reviews themselves; they run section for section as before. What you get is more of the context window left for your actual work, paid back on every invocation. And every skill that asks you questions now carries a guarantee, enforced by tests: the decision brief (plain-English ELI10, an explicit recommendation with a real reason, pros and cons, the stakes) is provably in context the instant any question fires. External hosts (codex, factory, kiro, opencode) still receive the full inline skill, so nothing regresses off Claude.
+
+### Itemized changes
+
+#### Added
+- `plan-ceo-review/sections/review-sections.md` — the 11-section deep review, outside-voice rules, required-output registries, completion summary, review report writer, next-step chaining, and mode quick reference, behind a STOP-Read pointer with a passive `manifest.json`.
+- `office-hours/sections/design-and-handoff.md` — Phase 5 design-doc templates + Phase 6 tiered handoff, behind a STOP-Read pointer with a passive `manifest.json`.
+- `/plan-eng-review`, `/plan-design-review`, `/plan-devex-review` each gain a `sections/review-sections.md` carved behind a post-Step-0 STOP-Read.
+- `docs/askuserquestion-cjk.md` — full non-ASCII / CJK escaping rationale + worked example, read on demand.
+- `test/auq-format-always-loaded.test.ts` — free per-PR keystone: every interactive skill must carry the full AskUserQuestion format spec in its always-loaded skeleton, never stranded in a section. 51 cases plus a negative control.
+- `test/skill-e2e-auq-matrix.test.ts` — drives each AUQ-heavy skill to its first question and grades it (7/7 format, substance >=4).
+- `test/skill-e2e-auq-verbose-vs-carved-ab.test.ts` — proves a carved skill's question is not worse than the pre-carve monolith's, on the same trigger.
+- `test/skill-e2e-auq-consistency.test.ts` — same trigger N times, fails on any format element that flickers between runs.
+- `test/codex-e2e-recommendation-substance.test.ts` — grades `/codex`'s live recommendation substance.
+- `test/skill-ceo-section-ordering.test.ts` — gate-tier static guard: the STOP fires after Step 0, the review body is absent from the skeleton, the report writer lives in the section, and nothing review-governing sits below the STOP.
+- `test/skill-e2e-plan-ceo-review-section-loading.test.ts` — periodic backstop that asserts the carved section is Read before the report.
+
+#### Changed
+- `/plan-ceo-review`, `/office-hours`, `/plan-eng-review`, `/plan-design-review`, `/plan-devex-review` are each a skeleton + one on-demand section on Claude; the conversational front (Step 0 / Phases 1-4.5) stays always-loaded; external hosts still receive the full inline skill (no behavior change off Claude).
+- The AskUserQuestion preamble trims the inline CJK manual to the operative rule + a doc pointer; the always-loaded self-check is unchanged.
+- Parity, size-budget, section-manifest, gen-skill-docs, and skill-validation treat every carved skill consistently (content + size floors run against the skeleton + section union; skeleton-shrink assertions guard the always-loaded win).
+
+#### For contributors
+- `test/helpers/auq-sdk-capture.ts` — reusable SDK capture engine: drives a skill to its AUQ and captures the verbatim generated text cleanly (real-PTY mangles plan-mode questions), grades format + recommendation substance robust to the connective, and detects section reads losslessly from the tool-use stream.
+- `section-manifest-consistency` discovers every carved skill automatically, so the next carve is covered the moment its manifest lands.
+- The `/ship` and `/plan-ceo-review` section-loading E2E tests detect section reads from the `claude -p` tool-use stream instead of scraping the real-PTY screen buffer, so they are reliable (the PTY path silently saw nothing in some terminals) and run hermetically against the worktree carve without mutating the installed skill.
+
 ## [1.55.1.0] - 2026-06-02
 
 ## **Telemetry now tells you exactly what it records and where it stays. The project-slug helper hands the shell a safe identifier on every path.**
