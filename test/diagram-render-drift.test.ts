@@ -36,6 +36,33 @@ describe("diagram-render bundle drift", () => {
     expect(info.deps).toEqual(pkg.dependencies);
   });
 
+  test("BUILD_INFO srcSha256 matches src on disk (edited-src-forgot-rebuild guard)", async () => {
+    // The deep rebuild check below needs node_modules, which CI doesn't
+    // install for this nested package — this tier-1.5 fingerprint catches a
+    // src edit committed without a rebuild using nothing but file hashes.
+    const info = await Bun.file(BUILD_INFO).json();
+    const srcSha = createHash("sha256")
+      .update(await Bun.file(path.join(ROOT, "src", "entry.ts")).text())
+      .update(await Bun.file(path.join(ROOT, "scripts", "build.ts")).text())
+      .digest("hex");
+    expect(srcSha).toBe(info.srcSha256);
+  });
+
+  test("bundle font stack matches print-css (text-measurement drift guard)", async () => {
+    const entrySrc = await Bun.file(path.join(ROOT, "src", "entry.ts")).text();
+    // Every family print-css composes into the body stack must appear in the
+    // bundle's PRINT_SANS literal — mermaid measures text with these fonts and
+    // the print document lays it out with print-css's; drift = overflowing
+    // labels (eng-review D3).
+    for (const family of [
+      "Helvetica", "Liberation Sans", "Arial",
+      "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", "Microsoft YaHei",
+      "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+    ]) {
+      expect(entrySrc).toContain(family);
+    }
+  });
+
   test("page invariants: module script, base href, escaped terminators, error trap", async () => {
     const html = await Bun.file(DIST_HTML).text();
     expect(html).toContain('<script type="module">');

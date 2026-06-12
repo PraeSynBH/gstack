@@ -91,15 +91,17 @@ describe("landscape promotion gate", () => {
       expect(portrait.length).toBeGreaterThanOrEqual(2);
       expect(isLandscape(boxes[0])).toBe(false);
 
-      // The veto'd diagram rendered (its labels exist) on a PORTRAIT page.
+      // The veto'd diagram rendered on SOME portrait page and NO landscape
+      // page — the actual invariant. (Asserting a specific page index breaks
+      // spuriously when font metrics shift pagination.)
       const pdftotext = resolvePopplerTool("pdftotext")!;
-      const lastPortrait = portrait[portrait.length - 1];
-      const vetoText = execFileSync(
-        pdftotext,
-        ["-f", String(lastPortrait.page), "-l", String(lastPortrait.page), outputPdf, "-"],
-        { encoding: "utf8", timeout: CHILD_TIMEOUT_MS },
-      );
-      expect(vetoText).toContain("vetoalpha");
+      const pageText = (page: number) =>
+        execFileSync(pdftotext, ["-f", String(page), "-l", String(page), outputPdf, "-"], {
+          encoding: "utf8",
+          timeout: CHILD_TIMEOUT_MS,
+        });
+      expect(portrait.some((b) => pageText(b.page).includes("vetoalpha"))).toBe(true);
+      expect(landscape.some((b) => pageText(b.page).includes("vetoalpha"))).toBe(false);
     } finally {
       try { fs.rmSync(workDir, { recursive: true, force: true }); } catch { /* ignore */ }
     }

@@ -138,7 +138,8 @@ ${mmd}
 Score 1-10 on: faithfulness to the ask (are the named stages present and
 correctly ordered?), label quality (short node labels, detail on edges),
 and readable size (5-15 nodes, not a wall). A diagram that misses the
-failure/diagnostic path entirely caps at 6.
+failure/diagnostic path entirely caps at 5 — that path is an explicitly
+named requirement, so omitting it must fail the run.
 
 Respond with JSON: {"score": N, "reasoning": "..."}`,
       );

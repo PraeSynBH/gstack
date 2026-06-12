@@ -4,7 +4,7 @@
  * byte-level image dimension prober. No browse daemon required — the tab
  * factory returns null so downscale paths are exercised as no-ops.
  */
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -20,6 +20,7 @@ import {
   inlineLocalImages,
   parseInfoString,
   substituteSlots,
+  decodeFigureSource,
 } from "../src/diagram-prepass";
 import { imageDims } from "../src/image-size";
 
@@ -146,6 +147,18 @@ describe("diagnostic + figure blocks", () => {
     expect(fig).toContain('aria-label="Auth flow"');
     expect(fig).toContain("diagram-caption");
   });
+  test("embedded source round-trips mermaid arrows exactly", () => {
+    const source = "graph LR\n  A --> B\n  B -->|label with $& and `ticks`| C";
+    const fig = buildDiagramFigure({ ...fence, source }, "<svg></svg>");
+    expect(decodeFigureSource(fig)).toBe(source);
+  });
+  test("slot substitution is immune to $-replacement patterns in labels", () => {
+    const slotHtml = `<figure>label says $' and $& here</figure>`;
+    const out = substituteSlots("<p>tok-x</p><p>tail</p>", new Map([["tok-x", slotHtml]]));
+    expect(out).toContain("label says $' and $& here");
+    expect(out).toContain("<p>tail</p>");
+    expect(out).not.toContain("tailtail"); // $' expansion would duplicate the tail
+  });
 });
 
 // ─── image dimension probing ──────────────────────────────────────────
@@ -229,6 +242,9 @@ describe("content width", () => {
 describe("inlineLocalImages", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prepass-img-"));
   fs.writeFileSync(path.join(dir, "ok.png"), tinyPng(40, 20));
+  afterAll(() => {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
+  });
 
   const base = {
     inputDir: dir,
@@ -288,6 +304,30 @@ describe("inlineLocalImages", () => {
     const out = inlineLocalImages(`<img src="${uri}">`, { ...base, warn: () => {} });
     expect(out).toContain('data-gstack-px-width="33"');
     expect(out).toContain('data-gstack-px-height="44"');
+  });
+
+  test("Windows drive-letter src is treated as a local path, not a URL scheme", () => {
+    // C:/x.png matches the single-letter-scheme regex — it must reach the
+    // local-path branch (and the missing-file placeholder), never silently
+    // pass through as an unknown URL.
+    const warnings: string[] = [];
+    const out = inlineLocalImages(`<img src="C:/missing/x.png">`, { ...base, warn: (m) => warnings.push(m) });
+    expect(out).toContain("image-missing");
+    expect(warnings.length).toBe(1);
+  });
+
+  test("indented fences inside lists replay byte-for-byte (no list splitting)", () => {
+    const md = "- item\n\n  ```js\n  code();\n  ```\n\n- next";
+    const { markdown, fences } = extractDiagramFences(md);
+    expect(fences).toHaveLength(0);
+    expect(markdown).toBe(md);
+  });
+
+  test("indented mermaid fences are NOT extracted (column-0 placeholder would split the list)", () => {
+    const md = "- item\n\n  ```mermaid\n  graph LR\n  ```\n";
+    const { markdown, fences } = extractDiagramFences(md);
+    expect(fences).toHaveLength(0);
+    expect(markdown).toBe(md);
   });
 
   test("oversized raster without a tab inlines at full size with no downscale", () => {

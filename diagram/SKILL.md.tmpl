@@ -58,6 +58,9 @@ Decide the output directory: `./diagrams/` when the cwd is a git repo
 
 ## Step 2 — Stage the render bundle (once per session)
 
+The staged copy is content-addressed (same convention as make-pdf's pre-pass),
+so concurrent sessions and mixed gstack versions never clobber each other:
+
 ```bash
 BUNDLE=""
 for c in "$HOME/.claude/skills/gstack/lib/diagram-render/dist/diagram-render.html" \
@@ -65,36 +68,45 @@ for c in "$HOME/.claude/skills/gstack/lib/diagram-render/dist/diagram-render.htm
   [ -f "$c" ] && BUNDLE="$c" && break
 done
 [ -z "$BUNDLE" ] && echo "BUNDLE_MISSING — run: cd ~/.claude/skills/gstack && bun run build:diagram-render" && exit 1
-STAGED="/tmp/gstack-diagram-render-skill.html"
-cp "$BUNDLE" "$STAGED"
-$B newtab >/dev/null 2>&1 || true
-$B load-html "$STAGED"
-$B wait '#done'
-echo "RENDER_TAB_READY"
+SHA=$(shasum -a 256 "$BUNDLE" | cut -c1-16)
+STAGED="/tmp/gstack-diagram-render-$SHA.html"
+[ -f "$STAGED" ] && shasum -a 256 "$STAGED" | grep -q "^$SHA" || { cp "$BUNDLE" "$STAGED.$$" && mv "$STAGED.$$" "$STAGED"; }
+TAB=$($B newtab --json | sed -n 's/.*"tabId":\s*\([0-9]*\).*/\1/p')
+[ -z "$TAB" ] && echo "TAB_OPEN_FAILED — daemon busy? check browse status" && exit 1
+$B load-html "$STAGED" --tab-id "$TAB"
+$B wait '#done' --tab-id "$TAB"
+echo "RENDER_TAB_READY: tab $TAB"
 ```
+
+Remember `$TAB` — **every** `$B js` / `$B wait` / `$B closetab` below MUST pass
+`--tab-id $TAB`. Without it, calls hit whatever tab is active, which may be a
+live /qa or /scrape session sharing the daemon.
 
 If `BUNDLE_MISSING`: stop and show the user the build command. Do not improvise
 a CDN fallback — offline is the contract.
 
 ## Step 3 — Render the triplet
 
-Write the mermaid source to `<outdir>/<slug>.mmd` first (Write tool). Then,
-with `MMD` holding the mermaid text (escape for a JS string literal — the
-safest path is reading it back inside the page is NOT possible; pass it via a
-single-quoted JS template through `$B js`):
+Write the mermaid source to `<outdir>/<slug>.mmd` first (Write tool). The page
+cannot read files itself, so ship the source in via **base64** — never splice
+file contents into a JS template literal (backticks, `${`, and backslashes in
+the source would be interpreted and corrupt it):
 
 ```bash
-# SVG (always)
-$B js "window.__renderMermaid('diagram-1', \`$(cat <outdir>/<slug>.mmd)\`).then(s => { window.__svg = s; return 'SVG OK ' + s.length })"
-$B js "window.__svg" --out <outdir>/<slug>.svg
+# SVG (always). atob() decodes the base64 inside the page.
+$B js --tab-id "$TAB" "window.__renderMermaid('diagram-1', atob('$(base64 < <outdir>/<slug>.mmd | tr -d '\n')')).then(s => { window.__svg = s; return 'SVG OK ' + s.length })"
+$B js --tab-id "$TAB" "window.__svg" --out <outdir>/<slug>.svg
 
 # PNG at 300dpi of a 6.5in placement (1950px)
-$B js "window.__rasterize(window.__svg, 1950)" --out <outdir>/<slug>.png
+$B js --tab-id "$TAB" "window.__rasterize(window.__svg, 1950)" --out <outdir>/<slug>.png
 
 # Editable scene (flowcharts only)
-$B js "window.__mermaidToExcalidraw(\`$(cat <outdir>/<slug>.mmd)\`).then(j => { window.__scene = j; return 'SCENE OK ' + JSON.parse(j).elements.length + ' elements' })"
-$B js "window.__scene" --out <outdir>/<slug>.excalidraw
+$B js --tab-id "$TAB" "window.__mermaidToExcalidraw(atob('$(base64 < <outdir>/<slug>.mmd | tr -d '\n')')).then(j => { window.__scene = j; return 'SCENE OK ' + JSON.parse(j).elements.length + ' elements' })"
+$B js --tab-id "$TAB" "window.__scene" --out <outdir>/<slug>.excalidraw
 ```
+
+Note: `atob()` yields Latin-1; for sources with non-ASCII labels use
+`decodeURIComponent(escape(atob('…')))` to recover UTF-8 exactly.
 
 If the mermaid render returns an error, show the parse error to the user, fix
 the mermaid, and retry — do not hand the user a broken source file. If
@@ -111,12 +123,13 @@ artifact and deliver the rest with the limitation note from Step 1.
    source is the single source of truth.
 
 Re-rendering an EDITED `.excalidraw` (user round-trip): load the scene file
-and export without touching the mermaid:
+and export without touching the mermaid — base64 transport again, since scene
+JSON is full of quotes and backslashes:
 
 ```bash
-$B js "window.__excalidrawToSvg(\`$(cat <outdir>/<slug>.excalidraw)\`).then(s => { window.__svg = s; return 'OK' })"
-$B js "window.__svg" --out <outdir>/<slug>.svg
-$B js "window.__rasterize(window.__svg, 1950)" --out <outdir>/<slug>.png
+$B js --tab-id "$TAB" "window.__excalidrawToSvg(atob('$(base64 < <outdir>/<slug>.excalidraw | tr -d '\n')')).then(s => { window.__svg = s; return 'OK' })"
+$B js --tab-id "$TAB" "window.__svg" --out <outdir>/<slug>.svg
+$B js --tab-id "$TAB" "window.__rasterize(window.__svg, 1950)" --out <outdir>/<slug>.png
 ```
 
 ## Rules
@@ -125,7 +138,7 @@ $B js "window.__rasterize(window.__svg, 1950)" --out <outdir>/<slug>.png
   a diagram. If rendering is impossible (bundle missing, browse down), say so
   and stop.
 - **Cleanup:** close the render tab when the conversation's diagram work is
-  done (`$B closetab`), not between diagrams.
+  done (`$B closetab $TAB`), not between diagrams.
 - For diagrams destined for a PDF: remind the user that `make-pdf` renders
   ` ```mermaid ` fences natively — embedding the `.mmd` in their markdown is
   better than embedding the PNG.

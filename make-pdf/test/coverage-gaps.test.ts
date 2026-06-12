@@ -110,11 +110,19 @@ describe("rasterizeDiagramFigures (mock tab)", () => {
     expect(out).toContain('src="data:image/png;base64,AAAA"');
   });
 
-  test("figure rasterization failure keeps the figure (never silent loss)", () => {
+  test("figure rasterization failure surfaces the SOURCE as text (never silent loss)", () => {
+    // Returning the figure unchanged would make the diagram vanish in DOCX
+    // (the converter drops <figure>/<svg>) — the failure must be visible.
     const { tab } = mockTab(() => { throw new RenderCallError("tainted"); });
     const warnings: string[] = [];
-    const out = rasterizeDiagramFigures(figure, tab, 6.5, (m) => warnings.push(m));
-    expect(out).toContain('<figure class="diagram"');
+    const srcFigure = figure.replace(
+      '<figure class="diagram"',
+      `<figure class="diagram" data-gstack-source="${Buffer.from("graph LR\n  A --> B").toString("base64")}"`,
+    );
+    const out = rasterizeDiagramFigures(srcFigure, tab, 6.5, (m) => warnings.push(m));
+    expect(out).toContain("could not be rasterized");
+    expect(out).toContain("A --&gt; B"); // source visible (escaped), not dropped
+    expect(out).not.toContain("<figure");
     expect(warnings[0]).toContain("rasterization failed");
   });
 
@@ -196,25 +204,17 @@ describe("pure-function stragglers", () => {
       fs.unlinkSync(tmp);
     }
   });
-  test("resolveBundlePath error names every candidate and the fix", () => {
-    let message = "";
-    try {
-      resolveBundlePath({ GSTACK_DIAGRAM_BUNDLE: "/definitely/not/here.html", HOME: "/nonexistent-home" } as NodeJS.ProcessEnv);
-    } catch (err: any) {
-      message = err.message;
-    }
-    // The repo-relative candidates exist in this checkout, so force a miss is
-    // not possible portably — accept either a path return or the error shape.
-    if (message) {
-      expect(message).toContain("diagram-render bundle not found");
-      expect(message).toContain("build:diagram-render");
-    }
-  });
+  // NOTE: resolveBundlePath's not-found error shape is untestable from inside
+  // this checkout (the repo-relative candidate always exists), and a vacuous
+  // if-guarded assertion was worse than none. The env-override test above is
+  // the honest coverage; the error path is exercised manually via
+  // GSTACK_DIAGRAM_BUNDLE pointing at a missing file outside a repo.
 
   test("screenCss is media-scoped and readable-width", () => {
     const css = screenCss();
     expect(css).toContain("@media screen");
-    expect(css).toContain("max-width: 52em");
+    // 42em at 12pt ≈ 70-75 chars/line — the readable ceiling (design review).
+    expect(css).toContain("max-width: 42em");
     expect(css).toContain(".watermark { display: none; }");
   });
 });

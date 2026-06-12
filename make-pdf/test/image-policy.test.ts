@@ -75,6 +75,14 @@ describe("width styles", () => {
     const { html } = applyImagePolicy(img(`src="x" data-gstack-width="3in"`), OPTS);
     expect(html).toContain("width: 3in");
   });
+  test("width directive merges with an existing style attribute, preserving it", () => {
+    const { html } = applyImagePolicy(
+      img(`src="x" style="border: 1px solid" data-gstack-width="50%"`),
+      OPTS,
+    );
+    expect(html).toContain("border: 1px solid");
+    expect(html).toContain("width: 50%");
+  });
   test("no directive → no inline style (CSS max-width owns the default)", () => {
     const { html } = applyImagePolicy(img(`src="x" data-gstack-px-width="40" data-gstack-px-height="20"`), OPTS);
     expect(html).not.toContain("style=");
