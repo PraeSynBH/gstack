@@ -1259,7 +1259,7 @@ if [ "$INSTALL_HERMES" -eq 1 ]; then
         _skill_name="$(basename "$skill_dir")"
         # Skip the root gstack dir — already handled above
         [ "$_skill_name" = "gstack" ] && continue
-        _target="$HERMES_SKILLS/$skill_name"
+        _target="$HERMES_SKILLS/$_skill_name"
         # Don't overwrite a real directory from another skill source
         if [ -d "$_target" ] && [ ! -L "$_target" ]; then
           continue
