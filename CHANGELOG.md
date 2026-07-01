@@ -154,31 +154,6 @@ If you drive GBrowser to dogfood, scrape, or QA against anti-bot-protected targe
 - `--gstack-suppress-prepare-stack-trace` is opt-in via `GSTACK_CDP_STEALTH=on`, so the switch never reaches a Chromium that does not understand it.
 - `--disable-blink-features=AutomationControlled` comes from one shared `STEALTH_LAUNCH_ARGS` constant across every launch path.
 
-## [1.58.2.0] - 2026-06-26
-
-## **`./setup hermes` now installs gstack skill docs and runtime assets for the Hermes agent.**
-
-The `setup` script gains first-class Hermes host support. Running `./setup hermes` (or
-auto-detecting when `hermes` is on `PATH`) generates `.hermes/skills/gstack` and symlinks
-runtime assets (`bin`, `browse/dist`, `browse/bin`, `gstack-upgrade`, `review/`, `ETHOS.md`)
-so Hermes agents get the same zero-config onboarding that Claude, Codex, Kiro, Factory, and
-OpenCode already enjoy.
-
-### What changed
-
-- **Setup host detection**: `setup` now recognizes `hermes` as a valid host argument and sets
-  `INSTALL_HERMES=1`.
-- **Auto-detect**: when `HOST=auto`, `hermes` is checked alongside the five existing hosts.
-- **Skill doc generation**: `./setup hermes` runs `bun run gen:skill-docs --host hermes` if
-  not already present, then symlinks each generated skill into `~/.hermes/skills/`.
-- **Runtime sidecar layout**: `~/.hermes/skills/gstack/` receives root `SKILL.md`, `ETHOS.md`,
-  browse binaries, review checklists, and per-skill directories with preserved `gstack-*`
-  namespacing.
-- **Idempotent re-runs**: existing symlinks are replaced; real directories from other sources
-  are left untouched.
-
----
-
 ## [1.58.1.0] - 2026-06-14
 
 ## **Local evals stop lying. Spawned `claude` test children run in a sealed clean room,**

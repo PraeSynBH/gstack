@@ -98,7 +98,10 @@ while [ $# -gt 0 ]; do
     --no-plan-tune-hooks) PLAN_TUNE_HOOKS_MODE="no"; shift ;;
     --plan-tune-hooks=*)  PLAN_TUNE_HOOKS_MODE="${1#--plan-tune-hooks=}"; shift ;;
     -q|--quiet) QUIET=1; shift ;;
-    *) shift ;;
+    hermes) HOST=hermes; shift ;;
+    openclaw) HOST=openclaw; shift ;;
+    gbrain) HOST=gbrain; shift ;;
+    *) shift ;; 
   esac
 done
 
@@ -1218,8 +1221,6 @@ if [ "$INSTALL_HERMES" -eq 1 ]; then
     # Create runtime root with sidecar symlinks
     if [ -L "$HERMES_GSTACK" ]; then
       rm -f "$HERMES_GSTACK"
-    elif [ -d "$HERMES_GSTACK" ] && [ "$HERMES_GSTACK" != "$HERMES_GEN_DIR" ]; then
-      rm -rf "$HERMES_GSTACK"
     fi
     mkdir -p "$HERMES_GSTACK" "$HERMES_GSTACK/browse" "$HERMES_GSTACK/review"
 
