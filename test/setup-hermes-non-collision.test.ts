@@ -74,3 +74,88 @@ describe('setup: Hermes non-collision with existing files', () => {
     }
   });
 });
+
+describe('setup: Hermes generated skill linking', () => {
+  test('setup loop uses $_skill_name consistently for the target path', () => {
+    const content = fs.readFileSync(SETUP_SCRIPT, 'utf-8');
+
+    const start = content.indexOf('Link each generated Hermes skill');
+    expect(start).toBeGreaterThan(-1);
+
+    const end = content.indexOf('# 7.', start);
+    const block = content.slice(start, end);
+
+    // The original bug used an undefined bare $skill_name here, causing every
+    // generated child skill to be skipped silently.
+    expect(block).toContain('_target="$HERMES_SKILLS/$_skill_name"');
+    expect(block).not.toContain('_target="$HERMES_SKILLS/$skill_name"');
+  });
+
+  test('behavioral: all generated gstack-* skills are linked into HERMES_SKILLS', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gstack-hermes-linking-'));
+    try {
+      const hermesSkills = path.join(tmp, 'skills');
+      const hermesGenDir = path.join(tmp, 'gen', 'skills');
+
+      // Simulate generated Hermes skill docs
+      for (const skill of ['gstack', 'gstack-browse', 'gstack-qa']) {
+        const dir = path.join(hermesGenDir, skill);
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'SKILL.md'), `# ${skill}\n`);
+      }
+
+      // Inline the sub-skill loop from setup, exercising the variable-name
+      // fix so that $_skill_name is used consistently.
+      const script = `
+        set -e
+        mkdir -p "$HERMES_SKILLS"
+
+        _linked=()
+        for skill_dir in "$HERMES_GEN_DIR"/gstack*/; do
+          if [ -f "$skill_dir/SKILL.md" ]; then
+            _skill_name="\$(basename "$skill_dir")"
+            [ "$_skill_name" = "gstack" ] && continue
+            _target="$HERMES_SKILLS/$_skill_name"
+            if [ -d "$_target" ] && [ ! -L "$_target" ]; then
+              continue
+            fi
+            if [ -L "$_target" ]; then
+              rm -f "$_target"
+            fi
+            ln -snf "$skill_dir" "$_target"
+            _linked+=("$_skill_name")
+          fi
+        done
+
+        if [ \${#_linked[@]} -gt 0 ]; then
+          echo "linked skills: \${_linked[*]}"
+        fi
+      `;
+
+      const result = spawnSync('bash', ['-c', script], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        env: {
+          ...process.env,
+          HERMES_SKILLS: hermesSkills,
+          HERMES_GEN_DIR: hermesGenDir,
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('gstack-browse');
+      expect(result.stdout).toContain('gstack-qa');
+
+      // Each generated child skill should appear under HERMES_SKILLS
+      expect(fs.existsSync(path.join(hermesSkills, 'gstack-browse', 'SKILL.md'))).toBe(true);
+      expect(fs.existsSync(path.join(hermesSkills, 'gstack-qa', 'SKILL.md'))).toBe(true);
+
+      // The root gstack skill is handled separately and should be skipped here
+      if (fs.existsSync(path.join(hermesSkills, 'gstack'))) {
+        expect(fs.lstatSync(path.join(hermesSkills, 'gstack')).isSymbolicLink()).toBe(false);
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
